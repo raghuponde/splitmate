@@ -7,6 +7,8 @@ import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
 import CreateGroup from './pages/CreateGroup'
 import GroupDetail from './pages/GroupDetail'
+import Reports from './pages/Reports'
+import Profile from './pages/Profile'
 
 function App() {
   return (
@@ -36,6 +38,22 @@ function App() {
           element={
             <ProtectedRoute>
               <GroupDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/reports"
+          element={
+            <ProtectedRoute>
+              <Reports />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <Profile />
             </ProtectedRoute>
           }
         />

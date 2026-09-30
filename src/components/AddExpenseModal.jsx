@@ -3,20 +3,33 @@ import * as storage from '../data/storage'
 import { computeEqualSplits, SPLIT_EPSILON } from '../utils/balance'
 import { formatCurrency } from '../utils/format'
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, INPUT } from '../utils/styles'
+import { CATEGORIES, DEFAULT_CATEGORY } from '../utils/categories'
 
 const SPLIT_TYPE_BUTTON = 'flex-1 cursor-pointer rounded-md py-1.5 text-sm font-medium transition-colors'
 const SPLIT_TYPE_BUTTON_ACTIVE = 'bg-surface text-text-primary shadow-sm'
 const SPLIT_TYPE_BUTTON_INACTIVE = 'text-text-muted hover:text-text-primary'
 
-function AddExpenseModal({ group, members, currentUserId, onClose, onSaved }) {
-  const [description, setDescription] = useState('')
-  const [amount, setAmount] = useState('')
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
-  const [paidBy, setPaidBy] = useState(currentUserId)
-  const [shares, setShares] = useState(() => new Set(members.map((m) => m.id)))
-  const [splitType, setSplitType] = useState('equal')
-  const [manualAmounts, setManualAmounts] = useState({})
+function AddExpenseModal({ group, members, currentUserId, expense, onClose, onSaved }) {
+  const isEditing = Boolean(expense)
+  const [description, setDescription] = useState(expense?.description || '')
+  const [amount, setAmount] = useState(expense ? String(expense.amount) : '')
+  const [date, setDate] = useState(expense?.date || new Date().toISOString().slice(0, 10))
+  const [paidBy, setPaidBy] = useState(expense?.paidBy || currentUserId)
+  const [category, setCategory] = useState(expense?.category || DEFAULT_CATEGORY)
+  const [shares, setShares] = useState(
+    () => new Set(expense ? expense.splits.map((s) => s.userId) : members.map((m) => m.id))
+  )
+  const [splitType, setSplitType] = useState(expense?.splitType || 'equal')
+  const [manualAmounts, setManualAmounts] = useState(() => {
+    if (expense?.splitType !== 'manual') return {}
+    const prefill = {}
+    for (const split of expense.splits) {
+      prefill[split.userId] = String(split.amount)
+    }
+    return prefill
+  })
   const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
 
   const numericAmount = parseFloat(amount) || 0
   const shareCount = shares.size
@@ -60,7 +73,7 @@ function AddExpenseModal({ group, members, currentUserId, onClose, onSaved }) {
     setManualAmounts((prev) => ({ ...prev, [userId]: value }))
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
     setError('')
 
@@ -103,15 +116,36 @@ function AddExpenseModal({ group, members, currentUserId, onClose, onSaved }) {
       splits = computeEqualSplits(numericAmount, Array.from(shares))
     }
 
-    storage.createExpense({
-      groupId: group.id,
-      description: description.trim(),
-      amount: numericAmount,
-      paidBy,
-      splits,
-      splitType,
-      date,
-    })
+    setSaving(true)
+    try {
+      if (isEditing) {
+        await storage.editExpense(expense.id, {
+          groupId: group.id,
+          description: description.trim(),
+          amount: numericAmount,
+          paidBy,
+          splits,
+          splitType,
+          date,
+          category,
+        })
+      } else {
+        await storage.createExpense({
+          groupId: group.id,
+          description: description.trim(),
+          amount: numericAmount,
+          paidBy,
+          splits,
+          splitType,
+          date,
+          category,
+        })
+      }
+    } catch (err) {
+      setError(err.message)
+      setSaving(false)
+      return
+    }
 
     onSaved()
   }
@@ -120,7 +154,9 @@ function AddExpenseModal({ group, members, currentUserId, onClose, onSaved }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-[480px] rounded-2xl bg-surface p-6 shadow-none">
         <div className="mb-4 flex items-center justify-between border-b border-border pb-4">
-          <h2 className="text-lg font-semibold text-text-primary">Add expense</h2>
+          <h2 className="text-lg font-semibold text-text-primary">
+            {isEditing ? 'Edit expense' : 'Add expense'}
+          </h2>
           <button
             type="button"
             onClick={onClose}
@@ -162,15 +198,27 @@ function AddExpenseModal({ group, members, currentUserId, onClose, onSaved }) {
             </div>
           </div>
 
-          <div>
-            <label className="mb-1 block text-sm font-medium text-text-primary">Who paid?</label>
-            <select value={paidBy} onChange={(e) => setPaidBy(e.target.value)} className={INPUT}>
-              {members.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-text-primary">Who paid?</label>
+              <select value={paidBy} onChange={(e) => setPaidBy(e.target.value)} className={INPUT}>
+                {members.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-text-primary">Category</label>
+              <select value={category} onChange={(e) => setCategory(e.target.value)} className={INPUT}>
+                {CATEGORIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div>
@@ -251,8 +299,8 @@ function AddExpenseModal({ group, members, currentUserId, onClose, onSaved }) {
             <button type="button" onClick={onClose} className={BUTTON_SECONDARY}>
               Cancel
             </button>
-            <button type="submit" className={BUTTON_PRIMARY}>
-              Save
+            <button type="submit" disabled={saving} className={BUTTON_PRIMARY}>
+              {saving ? 'Saving...' : 'Save'}
             </button>
           </div>
         </form>

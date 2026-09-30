@@ -1,3 +1,4 @@
+import useDocumentTitle from '../utils/useDocumentTitle'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
@@ -6,6 +7,7 @@ import Navbar from '../components/Navbar'
 import { BADGE_PENDING, BUTTON_PRIMARY, BUTTON_SECONDARY, INPUT } from '../utils/styles'
 
 function CreateGroup() {
+  useDocumentTitle('New Group')
   const { user } = useAuth()
   const navigate = useNavigate()
 
@@ -13,8 +15,9 @@ function CreateGroup() {
   const [emailInput, setEmailInput] = useState('')
   const [members, setMembers] = useState([]) // { email, userId: string|null }
   const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
 
-  function handleAddMember(e) {
+  async function handleAddMember(e) {
     e.preventDefault()
     const email = emailInput.trim().toLowerCase()
     if (!email) return
@@ -28,20 +31,25 @@ function CreateGroup() {
       return
     }
 
-    const existingUser = storage.getUserByEmail(email)
-    setMembers((prev) => [
-      ...prev,
-      { email, userId: existingUser ? existingUser.id : null, name: existingUser?.name },
-    ])
-    setEmailInput('')
-    setError('')
+    try {
+      const existingUser = await storage.getUserByEmail(email)
+      setMembers((prev) =>
+        prev.some((m) => m.email === email)
+          ? prev
+          : [...prev, { email, userId: existingUser ? existingUser.id : null, name: existingUser?.name }]
+      )
+      setEmailInput('')
+      setError('')
+    } catch (err) {
+      setError(err.message)
+    }
   }
 
   function handleRemoveMember(email) {
     setMembers((prev) => prev.filter((m) => m.email !== email))
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
     setError('')
 
@@ -53,20 +61,25 @@ function CreateGroup() {
     const memberIds = members.filter((m) => m.userId).map((m) => m.userId)
     const pendingEmails = members.filter((m) => !m.userId).map((m) => m.email)
 
-    const group = storage.createGroup({
-      name: name.trim(),
-      memberIds,
-      pendingEmails,
-      createdBy: user.id,
-    })
-
-    navigate(`/group/${group.id}`)
+    setSaving(true)
+    try {
+      const group = await storage.createGroup({
+        name: name.trim(),
+        memberIds,
+        pendingEmails,
+        createdBy: user.id,
+      })
+      navigate(`/group/${group.id}`)
+    } catch (err) {
+      setError(err.message)
+      setSaving(false)
+    }
   }
 
   return (
     <div className="min-h-screen bg-bg">
       <Navbar />
-      <div className="mx-auto max-w-[680px] px-4 py-8">
+      <div className="mx-auto max-w-6xl px-4 py-8">
         <h1 className="mb-6 text-xl font-bold text-text-primary">Create a group</h1>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -127,8 +140,8 @@ function CreateGroup() {
 
           {error && <p className="text-sm text-negative-text">{error}</p>}
 
-          <button type="submit" className={`w-full ${BUTTON_PRIMARY}`}>
-            Create group
+          <button type="submit" disabled={saving} className={`w-full ${BUTTON_PRIMARY}`}>
+            {saving ? 'Creating...' : 'Create group'}
           </button>
         </form>
       </div>
