@@ -1,9 +1,13 @@
+import useDocumentTitle from '../utils/useDocumentTitle'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { UserPlus } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { BUTTON_PRIMARY, INPUT } from '../utils/styles'
+import Logo from '../components/Logo'
 
 function Register() {
+  useDocumentTitle('Create Account')
   const { register } = useAuth()
   const navigate = useNavigate()
   const [name, setName] = useState('')
@@ -11,7 +15,7 @@ function Register() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
     setError('')
 
@@ -21,7 +25,7 @@ function Register() {
     }
 
     try {
-      register(name.trim(), email.trim(), password)
+      await register(name.trim(), email.trim(), password)
       navigate('/dashboard')
     } catch (err) {
       setError(err.message)
@@ -30,6 +34,7 @@ function Register() {
 
   return (
     <div className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-4">
+      <Logo size={120} className="mx-auto mb-6" />
       <h1 className="mb-6 text-xl font-bold text-text-primary">Create your account</h1>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -53,7 +58,8 @@ function Register() {
 
         {error && <p className="text-sm text-negative-text">{error}</p>}
 
-        <button type="submit" className={`w-full ${BUTTON_PRIMARY}`}>
+        <button type="submit" className={`flex w-full items-center justify-center gap-2 ${BUTTON_PRIMARY}`}>
+          <UserPlus size={16} />
           Create account
         </button>
       </form>

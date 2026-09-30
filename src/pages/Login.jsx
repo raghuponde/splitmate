@@ -1,20 +1,24 @@
+import useDocumentTitle from '../utils/useDocumentTitle'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { LogIn } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { BUTTON_PRIMARY, INPUT } from '../utils/styles'
+import Logo from '../components/Logo'
 
 function Login() {
+  useDocumentTitle('Sign In')
   const { login } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
     setError('')
     try {
-      login(email, password)
+      await login(email, password)
       navigate('/dashboard')
     } catch (err) {
       setError(err.message)
@@ -23,6 +27,7 @@ function Login() {
 
   return (
     <div className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-4">
+      <Logo size={120} className="mx-auto mb-6" />
       <h1 className="mb-1 text-xl font-bold text-text-primary">Sign in</h1>
       <p className="mb-6 text-sm text-text-secondary">
         Test accounts: shubham@test.com / bob@test.com / rahul@test.com / eva@test.com, password
@@ -51,7 +56,8 @@ function Login() {
 
         {error && <p className="text-sm text-negative-text">{error}</p>}
 
-        <button type="submit" className={`w-full ${BUTTON_PRIMARY}`}>
+        <button type="submit" className={`flex w-full items-center justify-center gap-2 ${BUTTON_PRIMARY}`}>
+          <LogIn size={16} />
           Sign in
         </button>
       </form>
